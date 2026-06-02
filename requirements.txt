@@ -1,4 +1,6 @@
-scrapling==0.2.1
+requests==2.31.0
+beautifulsoup4==4.12.3
+deep-translator==1.11.4
 python-telegram-bot==21.1.1
 feedparser==6.0.11
 apscheduler==3.10.4
