@@ -31,19 +31,18 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "YOUR_BOT_TOKEN")
 YOUR_CHAT_ID = os.environ.get("CHAT_ID", "YOUR_CHAT_ID")
 PORT = int(os.environ.get("PORT", 8080))
 
-# الحالات التشغيلية والإحصائيات (لوحة التحكم للمشرف)
+# الحالات التشغيلية والإحصائيات
 IS_PAUSED = False
 STATS = {
     "boot_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     "published_total": 0,
+    "scraped_total": 0,
     "skipped_duplicates": 0,
     "skipped_old": 0,
-    "skipped_clickbait": 0,
-    "scraped_total": 0  
+    "skipped_clickbait": 0
 }
 
-
-# قائمة المصادر الشاملة (تقنية + ذكاء اصطناعي + سياسة + رياضة)
+# قائمة المصادر الشاملة والمحدثة
 RSS_FEEDS = [
     "https://www.theverge.com/rss/index.xml",
     "https://techcrunch.com/feed/",
@@ -67,17 +66,18 @@ RSS_FEEDS = [
     "https://www.aljazeera.net/aljazeerarss.xml",
     "https://arabic.rt.com/rss/",
     "https://www.bbc.com/arabic/index.xml",
+    # مصادر كرة القدم الفخمة والمخصصة
+    "https://hih2.com/feed",
+    "https://www.caughtoffside.com/tags/fabrizio-romano/feed/",
     "https://www.goal.com/ar/feeds/news",
     "https://www.filgoal.com/news.xml",
     "https://www.skysports.com/football/rss"
-    "https://hih2.com/feed",           "https://www.caughtoffside.com/tags/fabrizio-romano/feed/"
 ]
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
-# مصفاة الكلمات المحظورة والحشو المضلل (Clickbait Filter)
 CLICKBAIT_BLACKLIST = [
     "sponsored", "giveaway", "deal of the day", "promo", "ad ", 
     "اشترك الآن", "اضغط هنا للفوز", "ربح المال", "إعلان ممول"
@@ -99,7 +99,7 @@ AUTO_HASHTAGS = {
     "📱 Mobile": "\n\n#هواتف #أندرويد #سامسونج #جوالات",
     "🚀 Startups": "\n\n#شركات_ناشئة #استثمارات #ريادة_أعمال",
     "📢 سياسة": "\n\n#أخبار_السياسة #عاجل #أخبار_العالم #سياسة",
-    "⚽ كرة القدم": "\n\n#كرة_القدم #انتقالات_اللاعبين #الدوري_الانجليزي #ريال_مدريد #برشلونة",
+    "⚽ كرة القدم": "\n\n#كرة_القدم #انتقالات_اللاعبين #الدوري_الانجليزي #ريال_مدريد #برشلونة #هاي_كورة",
     "💻 Tech": "\n\n#أخبار_التقنية #تكنولوجيا #عالم_التقنية",
     "🚨 عاجل | Breaking": "\n\n#عاجل #أخبار_عاجلة #BreakingNews"
 }
@@ -169,17 +169,13 @@ def save_news(title, url):
         pass
     conn.close()
 
-# --- 4. التصنيف التلقائي المطور + محرك انطباع الخبر (Sentiment Engine) ---
+# --- 4. التصنيف التلقائي المطور وعزل التداخل اللغوي ---
 def get_sentiment_emoji(text):
-    """محرك محلي لفحص انطباع كلمات العنوان وإضافة الإيموجي التفاعلي المناسب للعنوان"""
     text_lower = text.lower()
     positives = ["إطلاق", "تحديث", "أرباح", "فوز", "تتويج", "صفقة", "ثورة", "نجاح", "launch", "success", "profit", "win", "revenue", "deal"]
     negatives = ["ثغرة", "اختراق", "انخفاض", "خسائر", "حظر", "هزيمة", "إصابة", "تراجع", "vulnerability", "hack", "loss", "ban", "injury", "defeat", "drop"]
-    
-    if any(p in text_lower for p in positives):
-        return "🚀 "
-    if any(n in text_lower for n in negatives):
-        return "⚠️ "
+    if any(p in text_lower for p in positives): return "🚀 "
+    if any(n in text_lower for n in negatives): return "⚠️ "
     return ""
 
 def classify_article(title, content):
@@ -188,28 +184,30 @@ def classify_article(title, content):
     if any(x in text_to_scan for x in ["breaking", "urgent", "عاجل", "🚨"]):
         return "🚨 عاجل | Breaking"
         
-    # حل صدمة جنرال ملاعب: الفئة السياسية لها حماية وأولوية قصوى قبل فحص الرياضة
-    political_keywords = ["انتخابات", "رئيس", "وزير", "غارة", "معاهدة", "قمة", "تصويت", "البرلمان", "سياسة", "مفاوضات", "هدنة", "جيش", "قوات", "حزب الله", "إيران", "لبنان", "اسرائيل", "غزة", "حماس", "واشنطن", "government", "president", "minister", "election", "parliament", "military", "treaty", "politics"]
+    # أ) حماية الفئة السياسية بأعلى أولوية لتفادي تداخل أسماء الأشخاص (مثل جنرال ملاعب)
+    political_keywords = ["انتخابات", "رئيس", "وزير", "غارة", "معاهدة", "قمة", "تصويت", "البرلمان", "سياسة", "مفاوضات", "هدنة", "جيش", "قوات", "حزب الله", "إيران", "لبنان", "اسرائيل", "غزة", "حماس", "واشنطن", "روسيا", "أوكرانيا", "صواريخ", "مسيرة", "government", "president", "minister", "election", "parliament", "military", "politics"]
     if any(p in text_to_scan for p in political_keywords):
         return "📢 سياسة"
         
-    categories = {
-        "🤖 AI": ["ai", "artificial intelligence", "openai", "chatgpt", "llm", "claude", "anthropic", "deepmind", "gemini", "copilot", "machine learning", "meta ai", "xai", "mistral", "ذكاء اصطناعي", "توليدي"],
-        "⚽ كرة القدم": ["انتقالات", "مباراة", "هدف", "برشلونة", "مدريد", "دوري", "لاعب", "اهداف", "كورة", "تعاقد", "football", "transfer", "match", "goal", "ucl", "chelsea", "liverpool", "bayern", "الدوري"],
-        "🍎 Apple": ["apple", "iphone", "ipad", "mac", "macbook", "ios", "macrumors", "9to5mac", "apple watch", "آبل", "آيفون"],
-        "📱 Mobile": ["mobile", "android", "smartphone", "gsmarena", "samsung", "galaxy", "pixel", "snapdragon", "xiaomi", "9to5google", "androidcentral", "هاتف", "جوال"],
-        "🚀 Startups": ["startup", "funding", "venture", "techcrunch", "acquisition", "ipo", "raised", "شركة ناشئة"]
-    }
-    for category, keywords in categories.items():
-        if any(keyword in text_to_scan for keyword in keywords):
-            return category
+    # ب) تنقية فئة كرة القدم بكلمات حصرية وصارمة
+    football_keywords = ["كرة القدم", "انتقالات اللاعبين", "برشلونة", "مدريد", "ريال مدريد", "الليغا", "الدوري الإنجليزي", "دوري أبطال", "ميركاتو", "تعاقد مع", "hih2", "هاي كورة", "football", "transfer market", "here we go", "fabrizio romano", "ucl", "premier league", "la liga"]
+    if any(f in text_to_scan for f in football_keywords):
+        return "⚽ كرة القدم"
+        
+    # ج) الذكاء الاصطناعي باستخدام الـ Regex للحدود اللغوية (منع لقط كلمات مثل trailer و available)
+    ai_patterns = [r'\bai\b', r'\bopenai\b', r'\bchatgpt\b', r'\bclaude\b', r'\bgemini\b', r'\bllm\b', r'\bdeepmind\b', r'\bmachine learning\b']
+    if any(re.search(p, text_to_scan) for p in ai_patterns) or any(x in text_to_scan for x in ["ذكاء اصطناعي", "ذكاء توليدي", "توليدي"]):
+        return "🤖 AI"
+        
+    if any(x in text_to_scan for x in ["apple", "iphone", "ipad", "macbook", "ios", "آبل", "آيفون"]): return "🍎 Apple"
+    if any(x in text_to_scan for x in ["mobile", "android", "smartphone", "جوال", "هاتف", "أندرويد", "سامسونج"]): return "📱 Mobile"
+    if any(x in text_to_scan for x in ["startup", "funding", "venture", "شركة ناشئة", "استحواذ"]): return "🚀 Startups"
+    
     return "💻 Tech"
 
-# --- 5. كشط آمن + الختم المائي التلقائي بجودة عالية (Auto-Watermark) ---
+# --- 5. كشط آمن + الختم المائي التلقائي عالي النقاء (Auto-Watermark) ---
 def clean_image_url(url):
-    """حل مشكلة جودة الصور عبر تدمير لاحقات أحجام الـ Thumbnails لطلب الحجم الكامل الأصلي للمقال"""
-    if not url:
-        return url
+    if not url: return url
     return re.sub(r'-\d+x\d+\.(jpg|jpeg|png|webp)', r'.\1', url)
 
 def apply_watermark(image_content):
@@ -222,12 +220,10 @@ def apply_watermark(image_content):
         x = width - 150
         y = height - 40
         
-        # رسم الختم بظل أسود عريض لمنع ضياع النص واختفاءه
         draw.text((x + 1, y + 1), text, fill=(0, 0, 0))
         draw.text((x, y), text, fill=(255, 255, 255))
         
         output = io.BytesIO()
-        # رفع الجودة إلى 95 للحفاظ على نقاء الألوان وتفادي تشويه تيليجرام
         img.save(output, format="JPEG", quality=95)
         output.seek(0)
         return output
@@ -236,8 +232,7 @@ def apply_watermark(image_content):
         return io.BytesIO(image_content)
 
 def get_image_bytes(url):
-    if not url:
-        return None
+    if not url: return None
     cleaned_img_url = clean_image_url(url)
     try:
         response = requests.get(cleaned_img_url, headers=HEADERS, timeout=5, stream=True)
@@ -266,23 +261,17 @@ def scrape_and_extract(url, entry):
         response = requests.get(url, headers=HEADERS, timeout=8)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
-            
             if not img_url:
                 og_img = soup.find('meta', property='og:image') or soup.find('meta', attrs={'name': 'og:image'})
-                if og_img and og_img.get('content'):
-                    img_url = og_img['content']
+                if og_img and og_img.get('content'): img_url = og_img['content']
             
             for p in soup.find_all('p'):
                 p_text = p.get_text().strip()
                 if len(p_text) > 60 and not any(x in p_text.lower() for x in ["cookie", "subscribe", "sign up", "privacy policy", "terms of service", "all rights reserved"]):
-                    
                     if any(x in p_text.lower() for x in ["by ", "author", "director", "manager", "researcher", "analyst", "بواسطة", "الكاتب", "باحث", "مدير"]):
-                        if p_text.count('|') >= 1 or p_text.count(',') > 3:
-                            continue
-                            
+                        if p_text.count('|') >= 1 or p_text.count(',') > 3: continue
                     extracted_paragraphs.append(p_text)
-                if len(extracted_paragraphs) == 2:
-                    break
+                if len(extracted_paragraphs) == 2: break
     except Exception as e:
         logging.error(f"⚠️ خطأ أثناء كشط الرابط {url}: {e}")
         
@@ -293,12 +282,9 @@ def scrape_and_extract(url, entry):
     image_bytes = get_image_bytes(img_url)
     return image_bytes, " ".join(extracted_paragraphs)
 
-# --- 6. محرك الترجمة والتهذيب اللغوي التقني ---
 def translate_and_refine(text, max_chars=300):
-    if not text.strip():
-        return ""
-    if bool(re.search(r'[\u0600-\u06FF]', text)): 
-        return text[:max_chars]
+    if not text.strip(): return ""
+    if bool(re.search(r'[\u0600-\u06FF]', text)): return text[:max_chars]
         
     try:
         translator = GoogleTranslator(source='auto', target='ar')
@@ -310,44 +296,36 @@ def translate_and_refine(text, max_chars=300):
             
         sentences = translated.split('.')
         refined_sentences = [s.strip() for s in sentences if len(s.strip()) > 10]
-        
-        final_text = " | ".join(refined_sentences[:3])
-        return final_text[:max_chars]
+        return " | ".join(refined_sentences[:3])[:max_chars]
     except Exception as e:
         logging.error(f"⚠️ فشل محرك الترجمة: {e}")
         return ""
 
-# --- 7. المنظومة الأساسية ومصفاة الوقت الحقيقي (Time-Based Engine) ---
+# --- 6. المنظومة الأساسية للترصد ومكافحة التداخل الدوري ---
 async def check_and_broadcast_news(context: ContextTypes.DEFAULT_TYPE):
     global IS_PAUSED, STATS
-    if IS_PAUSED:
-        logging.info("⏸️ النشر التلقائي متوقف مؤقتاً حالياً بأمر من المشرف.")
-        return
+    if IS_PAUSED: return
 
-    logging.info("⏳ بدء دورة فحص الأخبار الجديدة والمطابقة للوقت...")
+    logging.info("⏳ بدء دورة فحص الأخبار الجديدة المطابقة شروطه...")
     bot = context.bot
     current_timestamp = time.time()
     
     for feed_url in RSS_FEEDS:
         try:
             feed = feedparser.parse(feed_url)
-            if hasattr(feed, 'bozo') and feed.bozo:
-                continue
-            if not feed.entries:
-                continue
+            if hasattr(feed, 'bozo') and feed.bozo: continue
+            if not feed.entries: continue
                 
             entries = feed.entries[:3]
             for entry in entries:
                 news_url = entry.link
                 original_title = entry.title
                 
-                # أ) مصفاة الكليكبايت والحشو الإعلاني
                 if any(bad in original_title.lower() for bad in CLICKBAIT_BLACKLIST):
                     STATS["skipped_clickbait"] += 1
                     continue
                 
-                # ب) حل مشكلة مساحة Render المؤقتة (Time-Based Filter)
-                # فحص وقت نشر الخبر؛ إذا كان أقدم من 35 دقيقة، يتم استبعاده فوراً لحماية القناة من الطوفان عند الـ Restart
+                # أ) مصفاة الحماية القائمة على الزمن (لمنع طوفان تشغيل السيرفر)
                 published_time = entry.get('published_parsed') or entry.get('updated_parsed')
                 if published_time:
                     article_timestamp = time.mktime(published_time)
@@ -355,25 +333,25 @@ async def check_and_broadcast_news(context: ContextTypes.DEFAULT_TYPE):
                         STATS["skipped_old"] += 1
                         continue
                 
-                # ج) فحص منع التكرار في النطاق الزمني الحالي
+                # ب) فحص منع التكرار الفوري
                 if is_duplicate(original_title, news_url):
                     STATS["skipped_duplicates"] += 1
                     continue
                 
-                logging.info(f"📰 اصطياد خبر طازج متوافق مع الشروط: {original_title}")
+                # ⭐ الحل الجراحي: نحفظه في الداتابيز حالاً لحجز الهوية ومنع التقاطه من أي دورة متداخلة
+                save_news(original_title, news_url)
                 STATS["scraped_total"] += 1
+                
+                logging.info(f"📰 خبر فريد ومطابق تماماً: {original_title}")
                 
                 image_bytes, summary_text = scrape_and_extract(news_url, entry)
                 category = classify_article(original_title, summary_text)
-                
-                # جلب إيموجي الانطباع التلقائي
                 sentiment_emoji = get_sentiment_emoji(original_title)
                 
                 translated_title = translate_and_refine(original_title, max_chars=120)
                 translated_summary = translate_and_refine(summary_text, max_chars=350)
                 
-                if not translated_title:
-                    translated_title = original_title
+                if not translated_title: translated_title = original_title
                     
                 hashtags = AUTO_HASHTAGS.get(category, "\n\n#تقنية #أخبار")
                 
@@ -411,73 +389,56 @@ async def check_and_broadcast_news(context: ContextTypes.DEFAULT_TYPE):
                             disable_web_page_preview=True
                         )
                     
-                    save_news(original_title, news_url)
                     STATS["published_total"] += 1
                     logging.info(f"✅ تم بث الخبر بنجاح: {original_title}")
                     
-                    # د) نظام "تنقيط وتوزيع البث" الذكي (Dripping Mechanism)
-                    # ترك مسافة دقيقة ونصف دقيقة بين المنشورات الفريش المتزامنة لعدم إزعاج المشترك
-                    await asyncio.sleep(90)
+                    # ج) نظام "تنقيط البث النظيف" (ترك 15 ثانية لمنع حظر تيليجرام ولتوزيع الإشعارات)
+                    await asyncio.sleep(15)
                     
                 except Exception as tx:
-                    logging.error(f"❌ خطأ في إرسال الخبر عبر تيليجرام: {tx}")
+                    logging.error(f"❌ خطأ أثناء البث: {tx}")
                     
         except Exception as feed_parse_error:
-            logging.error(f"❌ فشل معالجة رابط الـ RSS بالكامل للمصدر {feed_url}: {feed_parse_error}")
+            logging.error(f"❌ فشل معالجة الرابط بالكامل {feed_url}: {feed_parse_error}")
 
-# --- 8. لوحة التحكم والتحكم عن بُعد من الموبايل (Admin Commands) ---
+# --- 7. أوامر لوحة التحكم للمشرف من الموبايل ---
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if str(update.effective_chat.id) != str(YOUR_CHAT_ID) and str(update.effective_user.id) != str(YOUR_CHAT_ID):
-        return  # حماية البوت؛ لا يستجيب إلا لك شخصياً
-        
-    global STATS, IS_PAUSED
-    status_str = "⏸️ متوقف مؤقتاً" if IS_PAUSED else "▶️ يعمل وينشر بنشاط"
-    report = (
-        f"📊 <b>لوحة تحكم المنظومة الإخبارية @FeedTelebot</b>\n\n"
-        f"<b>• حالة البوت الحالية:</b> {status_str}\n"
-        f"<b>• وقت الإقلاع:</b> {STATS['boot_time']}\n"
-        f"<b>• الأخبار المنشورة بنجاح:</b> {STATS['published_total']}\n"
-        f"<b>• الأخبار المفحوصة كلياً:</b> {STATS['scraped_total']}\n\n"
-        f"🛡️ <b>منظومة الحماية والـ Filters:</b>\n"
-        f"<b>• المكرر المستبعد:</b> {STATS['skipped_duplicates']}\n"
-        f"<b>• القديم المستبعد (حماية الطوفان):</b> {STATS['skipped_old']}\n"
-        f"<b>• الإعلانات والحشو المستبعد:</b> {STATS['skipped_clickbait']}\n"
-    )
-    await update.message.reply_text(report, parse_mode=ParseMode.HTML)
+    if str(update.effective_user.id) == str(YOUR_CHAT_ID) or str(update.effective_chat.id) == str(YOUR_CHAT_ID):
+        global STATS, IS_PAUSED
+        status_str = "⏸️ متوقف مؤقتاً" if IS_PAUSED else "▶️ يعمل وينشر بنشاط"
+        report = (
+            f"📊 <b>لوحة تحكم المنظومة @FeedTelebot</b>\n\n"
+            f"<b>• حالة البوت:</b> {status_str}\n"
+            f"<b>• المنشور بنجاح:</b> {STATS['published_total']}\n"
+            f"<b>• المصفى كـ مكرر:</b> {STATS['skipped_duplicates']}\n"
+            f"<b>• المصفى كـ قديم:</b> {STATS['skipped_old']}\n"
+            f"<b>• المصفى كـ إعلان:</b> {STATS['skipped_clickbait']}\n"
+        )
+        await update.message.reply_text(report, parse_mode=ParseMode.HTML)
 
 async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_user.id) == str(YOUR_CHAT_ID):
-        global IS_PAUSED
-        IS_PAUSED = True
-        await update.message.reply_text("⏸️ تم إيقاف النشر التلقائي في القناة مؤقتاً بنجاح.")
+        global IS_PAUSED; IS_PAUSED = True
+        await update.message.reply_text("⏸️ تم إيقاف النشر التلقائي مؤقتاً.")
 
 async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_user.id) == str(YOUR_CHAT_ID):
-        global IS_PAUSED
-        IS_PAUSED = False
-        await update.message.reply_text("▶️ تم إعادة تفعيل البث التلقائي، جاري الترصد للمصادر.")
+        global IS_PAUSED; IS_PAUSED = False
+        await update.message.reply_text("▶️ تم إعادة تفعيل البث التلقائي بنجاح.")
 
-# --- 9. الإقلاع والربط الهيكلي للمنظومة الحية ---
+# --- 8. الإقلاع والربط الهيكلي الحقيقي ---
 if __name__ == '__main__':
     init_db()
-    
-    # تشغيل خادم الويب الخاص بـ Render و UptimeRobot في الخلفية
     threading.Thread(target=run_health_server, daemon=True).start()
     
-    # بناء وتأسيس محرك التطبيق الذكي لتيليجرام
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     
-    # ربط الأوامر السرية للمشرف (من الموبايل مباشرة)
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("pause", pause_command))
     app.add_handler(CommandHandler("resume", resume_command))
     
-    # استخدام المجدول المدمج والأصلي (Native Job Queue) لمنع التداخل والتعليق نهائياً
-    # مبرمج ليعمل بدقة كل 15 دقيقة (900 ثانية)، ويبدأ الفحص الأول بعد 10 ثوانٍ من الإقلاع
+    # استخدام الدالة الصحيحة والمحدثة والمجدولة كل 15 دقيقة بنظام منع التداخل
     app.job_queue.run_repeating(check_and_broadcast_news, interval=900, first=10)
-
     
-    logging.info("⚙️ تم ربط كافة الأنظمة الفرعية بنجاح. جاري تشغيل البوت واستقبال الأوامر...")
-    
-    # تشغيل البوت بشكل حي ومستمر
+    logging.info("⚙️ تم تشغيل الأنظمة بنجاح. القناة آمنة ومستقرة تماماً الحين!")
     app.run_polling()
