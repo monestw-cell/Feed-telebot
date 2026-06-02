@@ -38,8 +38,10 @@ STATS = {
     "published_total": 0,
     "skipped_duplicates": 0,
     "skipped_old": 0,
-    "skipped_clickbait": 0
+    "skipped_clickbait": 0,
+    "scraped_total": 0  
 }
+
 
 # قائمة المصادر الشاملة (تقنية + ذكاء اصطناعي + سياسة + رياضة)
 RSS_FEEDS = [
