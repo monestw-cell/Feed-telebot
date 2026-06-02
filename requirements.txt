@@ -1,0 +1,4 @@
+scrapling==0.2.1
+python-telegram-bot==21.1.1
+feedparser==6.0.11
+apscheduler==3.10.4
