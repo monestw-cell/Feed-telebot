@@ -472,7 +472,8 @@ if __name__ == '__main__':
     
     # استخدام المجدول المدمج والأصلي (Native Job Queue) لمنع التداخل والتعليق نهائياً
     # مبرمج ليعمل بدقة كل 15 دقيقة (900 ثانية)، ويبدأ الفحص الأول بعد 10 ثوانٍ من الإقلاع
-    app.job_queue.run_interval(check_and_broadcast_news, interval=900, first=10)
+    app.job_queue.run_repeating(check_and_broadcast_news, interval=900, first=10)
+
     
     logging.info("⚙️ تم ربط كافة الأنظمة الفرعية بنجاح. جاري تشغيل البوت واستقبال الأوامر...")
     
